@@ -4,6 +4,7 @@ export interface Category {
   id: number
   name: string
   parent_id: number | null
+  is_preset: number  // 1 = 预置，0 = 用户创建
 }
 
 export interface Expense {
@@ -26,6 +27,13 @@ export interface MonthlyStats {
   byCategory: { categoryName: string; amount: number; count: number }[]
 }
 
+// 操作结果类型（用于分类增删改的返回）
+export interface OpResult {
+  success: boolean
+  message: string
+  category?: Category
+}
+
 // ========== API 接口 ==========
 export interface AppAPI {
   getCategories: () => Promise<Category[]>
@@ -38,6 +46,9 @@ export interface AppAPI {
   }) => Promise<{ list: ExpenseWithCategory[]; total: number }>
   getMonthlyStats: (params: { yearMonth: string }) => Promise<MonthlyStats>
   deleteExpense: (id: number) => Promise<boolean>
+  addCategory: (name: string, parentId: number | null) => Promise<OpResult>
+  updateCategory: (id: number, name: string) => Promise<OpResult>
+  deleteCategory: (id: number) => Promise<OpResult>
 }
 
 declare global {

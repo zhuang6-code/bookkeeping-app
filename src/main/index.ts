@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain } from 'electron'
 import path from 'path'
-import { initDatabase, getCategories, addExpense, getExpenses, getMonthlyStats, deleteExpense } from './database'
+import { initDatabase, getCategories, addExpense, getExpenses, getMonthlyStats, deleteExpense, addCategory, updateCategory, deleteCategory } from './database'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -50,6 +50,21 @@ function registerIpc(): void {
   // 删除账单
   ipcMain.handle('delete-expense', (_event, { id }) => {
     return deleteExpense(id)
+  })
+
+  // 添加自定义分类
+  ipcMain.handle('add-category', (_event, { name, parentId }) => {
+    return addCategory(name, parentId)
+  })
+
+  // 修改分类名称
+  ipcMain.handle('update-category', (_event, { id, name }) => {
+    return updateCategory(id, name)
+  })
+
+  // 删除分类
+  ipcMain.handle('delete-category', (_event, { id }) => {
+    return deleteCategory(id)
   })
 }
 

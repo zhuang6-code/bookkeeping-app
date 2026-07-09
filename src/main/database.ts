@@ -10,6 +10,7 @@ export interface Category {
   id: number
   name: string
   parent_id: number | null
+  is_preset: number  // 1 = 预置分类（不可修改/删除），0 = 用户创建
 }
 
 export interface Expense {
@@ -41,6 +42,7 @@ export function initDatabase(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       parent_id INTEGER,
+      is_preset INTEGER NOT NULL DEFAULT 0,
       FOREIGN KEY (parent_id) REFERENCES categories(id)
     )
   `)
@@ -57,6 +59,15 @@ export function initDatabase(): void {
       FOREIGN KEY (category_id) REFERENCES categories(id)
     )
   `)
+
+  // 迁移：给旧数据库添加 is_preset 列（如果不存在）
+  try {
+    db.exec('ALTER TABLE categories ADD COLUMN is_preset INTEGER NOT NULL DEFAULT 0')
+    // 如果成功（说明是旧数据库），已有分类都标记为预置
+    db.exec('UPDATE categories SET is_preset = 1')
+  } catch (e) {
+    // 列已存在，无需处理
+  }
 
   // 初始化分类数据（仅首次）
   const count = db.prepare('SELECT COUNT(*) as cnt FROM categories').get() as { cnt: number }
@@ -80,7 +91,7 @@ function seedCategories(): void {
     { name: '其他', children: ['宠物', '捐款', '意外损失'] }
   ]
 
-  const insertCat = db.prepare('INSERT INTO categories (name, parent_id) VALUES (?, ?)')
+  const insertCat = db.prepare('INSERT INTO categories (name, parent_id, is_preset) VALUES (?, ?, 1)')
   const insertBatch = db.transaction(() => {
     for (const cat of categories) {
       const result = insertCat.run(cat.name, null)
@@ -96,6 +107,73 @@ function seedCategories(): void {
 // ========== 查询分类 ==========
 export function getCategories(): Category[] {
   return db.prepare('SELECT * FROM categories ORDER BY id').all() as Category[]
+}
+
+// ========== 添加用户自定义分类 ==========
+export function addCategory(name: string, parentId: number | null): { success: boolean; message: string; category?: Category } {
+  if (!name || name.trim().length === 0) {
+    return { success: false, message: '分类名称不能为空' }
+  }
+  const trimmedName = name.trim()
+  // 检查同级下是否已存在同名分类
+  const existing = db.prepare(
+    'SELECT id FROM categories WHERE name = ? AND (parent_id = ? OR (parent_id IS NULL AND ? IS NULL))'
+  ).get(trimmedName, parentId, parentId) as Category | undefined
+  if (existing) {
+    return { success: false, message: '该级别下已存在同名分类' }
+  }
+  const result = db.prepare(
+    'INSERT INTO categories (name, parent_id, is_preset) VALUES (?, ?, 0)'
+  ).run(trimmedName, parentId)
+  const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(result.lastInsertRowid) as Category
+  return { success: true, message: '添加成功', category }
+}
+
+// ========== 修改分类名称（仅用户创建的） ==========
+export function updateCategory(id: number, name: string): { success: boolean; message: string } {
+  const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as Category | undefined
+  if (!cat) {
+    return { success: false, message: '分类不存在' }
+  }
+  if (cat.is_preset === 1) {
+    return { success: false, message: '预置分类不可修改' }
+  }
+  if (!name || name.trim().length === 0) {
+    return { success: false, message: '分类名称不能为空' }
+  }
+  const trimmedName = name.trim()
+  // 检查同级下是否已存在同名分类（排除自己）
+  const existing = db.prepare(
+    'SELECT id FROM categories WHERE name = ? AND id != ? AND (parent_id = ? OR (parent_id IS NULL AND ? IS NULL))'
+  ).get(trimmedName, id, cat.parent_id, cat.parent_id) as Category | undefined
+  if (existing) {
+    return { success: false, message: '该级别下已存在同名分类' }
+  }
+  db.prepare('UPDATE categories SET name = ? WHERE id = ?').run(trimmedName, id)
+  return { success: true, message: '修改成功' }
+}
+
+// ========== 删除分类（仅用户创建的，且无账单记录） ==========
+export function deleteCategory(id: number): { success: boolean; message: string } {
+  const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(id) as Category | undefined
+  if (!cat) {
+    return { success: false, message: '分类不存在' }
+  }
+  if (cat.is_preset === 1) {
+    return { success: false, message: '预置分类不可删除' }
+  }
+  // 检查是否有子分类
+  const children = db.prepare('SELECT COUNT(*) as cnt FROM categories WHERE parent_id = ?').get(id) as { cnt: number }
+  if (children.cnt > 0) {
+    return { success: false, message: '该分类下还有子分类，请先删除子分类' }
+  }
+  // 尝试删除（外键约束会阻止有账单记录的分类被删除）
+  try {
+    db.prepare('DELETE FROM categories WHERE id = ?').run(id)
+    return { success: true, message: '删除成功' }
+  } catch (e) {
+    return { success: false, message: '该分类下有账单记录，无法删除' }
+  }
 }
 
 // ========== 添加账单 ==========

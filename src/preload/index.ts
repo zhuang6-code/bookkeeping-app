@@ -9,5 +9,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('get-expenses', params),
   getMonthlyStats: (params: { yearMonth: string }) =>
     ipcRenderer.invoke('get-monthly-stats', params),
-  deleteExpense: (id: number) => ipcRenderer.invoke('delete-expense', { id })
+  deleteExpense: (id: number) => ipcRenderer.invoke('delete-expense', { id }),
+  addCategory: (name: string, parentId: number | null) =>
+    ipcRenderer.invoke('add-category', { name, parentId }),
+  updateCategory: (id: number, name: string) =>
+    ipcRenderer.invoke('update-category', { id, name }),
+  deleteCategory: (id: number) =>
+    ipcRenderer.invoke('delete-category', { id })
 })
