@@ -1,0 +1,51 @@
+{
+  "name": "bookkeeping",
+  "version": "1.0.0",
+  "description": "记账 App - 跨平台桌面记账应用",
+  "main": "./out/main/index.js",
+  "scripts": {
+    "dev": "node scripts/run-electron.js dev",
+    "build": "node scripts/run-electron.js build",
+    "start": "node scripts/run-electron.js preview",
+    "package:win": "node scripts/run-electron.js build && electron-builder --win",
+    "package:mac": "node scripts/run-electron.js build && electron-builder --mac"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.0.0",
+    "antd": "^5.22.0",
+    "@ant-design/icons": "^5.5.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0",
+    "dayjs": "^1.11.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.0",
+    "@types/react": "^18.3.0",
+    "@types/react-dom": "^18.3.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "electron": "^28.0.0",
+    "electron-builder": "^25.0.0",
+    "electron-vite": "^3.0.0",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.0"
+  },
+  "build": {
+    "appId": "com.bookkeeping.app",
+    "productName": "记账",
+    "directories": {
+      "output": "release"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "resources/icon.ico"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "resources/icon.icns"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
